@@ -1,0 +1,22 @@
+- name: Download kubernetes-client archive
+  get_url:
+    url: "https://dl.k8s.io/v{{kubectl.version}}/kubernetes-client-{{kubectl.os}}-{{kubectl.arch}}.tar.gz"
+    checksum: "{{kubectl.checksum}}"
+    dest: "{{kubectl.tmp_directory}}"
+  tags:
+    - kubectl
+
+- name: Unarchive kubernetes-client
+  unarchive:
+    src: "{{kubectl.tmp_directory}}/kubernetes-client-{{kubectl.os}}-{{kubectl.arch}}.tar.gz"
+    dest: "{{kubectl.tmp_directory}}"
+  tags:
+    - kubectl
+
+- name: Copy kubectl binary to destination directory
+  copy:
+    src: "{{kubectl.tmp_directory}}/kubernetes/client/bin/kubectl"
+    dest: "{{kubectl.bin_directory}}/kubectl"
+    mode: 0755
+  tags:
+    - kubectl

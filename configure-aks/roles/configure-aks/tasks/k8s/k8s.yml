@@ -1,0 +1,51 @@
+- name: Install pip dependencies
+  pip:
+    name:
+      - openshift
+  tags:
+    - k8s
+
+- name: Manage a default k8s namespaces
+  k8s:
+    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        labels: "{{ item.labels | combine({'name': item.name}) }}"
+        name: "{{ item.name }}"
+  loop: "{{ configuration.defaultNamespaces }}"
+  tags:
+    - k8s
+
+- name: Manage a k8s namespaces
+  k8s:
+    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+    state: "{{ item.state }}"
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        labels: "{{ item.labels | combine({'name': item.name}) }}"
+        name: "{{ item.name }}"
+  loop: "{{ configuration.namespaces }}"
+  tags:
+    - k8s
+
+- name: Manage default deny NetworkPolicy
+  k8s:
+    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+    state: "{{ item.state }}"
+    definition:
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        name: default-deny
+        namespace: "{{ item.name }}"
+      spec:
+        podSelector:
+          matchLabels: {}
+  loop: "{{ configuration.namespaces }}"
+  tags:
+    - k8s

@@ -1,0 +1,181 @@
+- name: Set fact for certManager tempdir
+  set_fact:
+    certManagerTempDir: "/tmp/certManager-{{ ansible_date_time.iso8601_basic_short }}"
+  tags:
+    - certManager
+
+- name: Configure CAA record
+  azure_rm_resource:
+    resource_group: "{{ resourceGroupName }}"
+    provider: Network
+    resource_type: dnsZones
+    resource_name: "{{ externalDnsZone }}/CAA/@"
+    api_version: "2018-05-01"
+    method: PUT
+    body:
+      properties:
+        caaRecords:
+        - tag: issue
+          flags: 0
+          value: letsencrypt.org
+        TTL: 3600
+  tags:
+    - certManager
+
+- name: Add cert-manager namespace
+  k8s:
+    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ configuration.certManager.namespace }}"
+        labels: "{{ configuration.certManager.labels | combine({'name': configuration.certManager.namespace}) }}"
+  tags:
+    - certManager
+
+- name: Disable cert-manager validation for own namespace
+  shell: kubectl --kubeconfig="{{ configuration.k8sconfiguration.dest }}" label namespace "{{ configuration.certManager.namespace }}" certmanager.k8s.io/disable-validation=true --overwrite=true
+  changed_when: false
+  tags:
+    - certManager
+
+- name: Copy templates and apply
+  block:
+  - name: Create certManager temp dir
+    file:
+      path: "{{ certManagerTempDir }}"
+      state: directory
+      mode: 0755
+    changed_when: false
+    tags:
+      - certManager
+
+  - name: Copy cert-manager crd manifest jinja2 templates
+    template:
+      src: "certManagerCrds.yaml.j2"
+      dest: "{{ certManagerTempDir }}/certManagerCrds.yaml"
+    changed_when: false
+    tags:
+      - certManager
+
+  - name: Apply cert-manager crd manifest
+    k8s:
+      kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+      state: "present"
+      src: "{{ certManagerTempDir }}/certManagerCrds.yaml"
+    tags:
+      - certManager
+
+  - name: Copy cert-manager manifest jinja2 templates
+    template:
+      src: "certManager.yaml.j2"
+      dest: "{{ certManagerTempDir }}/certManager.yaml"
+    changed_when: false
+    tags:
+      - certManager
+
+  - name: Apply cert-manager manifest
+    k8s:
+      kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+      state: "present"
+      src: "{{ certManagerTempDir }}/certManager.yaml"
+      namespace: "{{ configuration.certManager.namespace }}"
+    tags:
+      - certManager
+      
+  - name: Delete certManager temp dir
+    file:
+      path: "{{ certManagerTempDir }}"
+      state: absent
+    changed_when: false
+    tags:
+      - certManager
+
+  rescue:
+  - name: Delete certManager temp dir
+    file:
+      path: "{{ certManagerTempDir }}"
+      state: absent
+    changed_when: false
+    tags:
+      - certManager
+
+  - name: Fail
+    fail:
+      msg: "Rescue was invoked, failing task."
+    tags:
+      - certManager
+
+- name: Create secret for cert-manager AzureDNS for istio
+  k8s:
+    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+    state: "present"
+    namespace: "{{ configuration.certManager.namespace }}"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: azuredns-config
+      type: Opaque
+      data:
+        CLIENT_SECRET: "{{ AZURE_SECRET | b64encode }}"
+  tags:
+    - certManager
+
+- name: Add cert-manager istio issuer
+  k8s:
+    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+    state: "present"
+    definition:
+      apiVersion: certmanager.k8s.io/v1alpha1
+      kind: ClusterIssuer
+      metadata:
+        name: letsencrypt-prod
+      spec:
+        acme:
+          server: https://acme-v02.api.letsencrypt.org/directory
+          email: "webmaster@{{ externalDnsZone }}"
+          privateKeySecretRef:
+            name: letsencrypt-prod
+          dns01:
+              providers:
+                  - name: azure
+                    azuredns:
+                      clientID: "{{ AZURE_CLIENT_ID }}"
+                      clientSecretSecretRef:
+                        name: azuredns-config
+                        key: CLIENT_SECRET
+                      subscriptionID: "{{ AZURE_SUBSCRIPTION_ID }}"
+                      tenantID: "{{ AZURE_TENANT }}"
+                      resourceGroupName: "{{ resourceGroupName }}"
+                      hostedZoneName: "{{ externalDnsZone }}"
+  tags:
+    - certManager
+
+- name: Issue certificate
+  k8s:
+    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+    state: "present"
+    definition:
+      apiVersion: certmanager.k8s.io/v1alpha1
+      kind: Certificate
+      metadata:
+        name: istio-gateway
+        namespace: istio-system
+      spec:
+        secretName: istio-ingressgateway-certs
+        issuerRef:
+          name: letsencrypt-prod
+          kind: ClusterIssuer
+        commonName: "*.{{ externalDnsZone }}"
+        acme:
+          config:
+          - dns01:
+              provider: azure
+            domains:
+            - "*.{{ externalDnsZone }}"
+            - "{{ externalDnsZone }}"
+  tags:
+    - certManager

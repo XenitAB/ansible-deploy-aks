@@ -1,0 +1,10 @@
+- hosts: all
+
+  roles:
+    - azure-deploy-aks
+
+  environment:
+    AZURE_CLIENT_ID: "{{ AZURE_CLIENT_ID }}"
+    AZURE_SECRET: "{{ AZURE_SECRET }}"
+    AZURE_SUBSCRIPTION_ID: "{{ AZURE_SUBSCRIPTION_ID }}"
+    AZURE_TENANT: "{{ AZURE_TENANT }}"

@@ -1,0 +1,95 @@
+- name: Set fact for externalDns tempdir
+  set_fact:
+    externalDnsTempDir: "/tmp/externalDns-{{ ansible_date_time.iso8601_basic_short }}"
+  tags:
+    - externalDns
+
+- name: Add external-dns namespace
+  k8s:
+    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ configuration.externalDns.namespace }}"
+        labels: "{{ configuration.externalDns.labels | combine({'name': configuration.externalDns.namespace}) }}"
+  tags:
+    - externalDns
+
+- name: Create external-dns configuration variable
+  set_fact:
+    externalDnsConfiguration:
+      tenantId: "{{ AZURE_TENANT }}"
+      subscriptionId: "{{ AZURE_SUBSCRIPTION_ID }}"
+      resourceGroup: "{{ resourceGroupName }}"
+      aadClientId: "{{ AZURE_CLIENT_ID }}"
+      aadClientSecret: "{{ AZURE_SECRET }}"
+  tags:
+    - externalDns
+
+- name: Create secret for external-dns to Azure
+  k8s:
+    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+    state: "present"
+    namespace: "{{ configuration.externalDns.namespace }}"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: azure-config-file
+      type: Opaque
+      data:
+        azure.json: "{{ externalDnsConfiguration | to_nice_json | b64encode }}"
+  tags:
+    - externalDns
+
+- name: Copy templates and apply
+  block:
+  - name: Create externalDns temp dir
+    file:
+      path: "{{ externalDnsTempDir }}"
+      state: directory
+      mode: 0755
+    changed_when: false
+    tags:
+      - externalDns
+
+  - name: Copy external-dns manifest jinja2 templates
+    template:
+      src: "external-dns.yaml.j2"
+      dest: "{{ externalDnsTempDir }}/external-dns.yaml"
+    changed_when: false
+    tags:
+      - externalDns
+
+  - name: Apply external-dns manifest
+    k8s:
+      kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+      state: "present"
+      src: "{{ externalDnsTempDir }}/external-dns.yaml"
+    tags:
+      - externalDns
+      
+  - name: Delete externalDns temp dir
+    file:
+      path: "{{ externalDnsTempDir }}"
+      state: absent
+    changed_when: false
+    tags:
+      - externalDns
+
+  rescue:
+  - name: Delete externalDns temp dir
+    file:
+      path: "{{ externalDnsTempDir }}"
+      state: absent
+    changed_when: false
+    tags:
+      - externalDns
+
+  - name: Fail
+    fail:
+      msg: "Rescue was invoked, failing task."
+    tags:
+      - externalDns

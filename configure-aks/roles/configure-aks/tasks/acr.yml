@@ -1,0 +1,59 @@
+- name: Get Azure Container Registry settings
+  azure_rm_resource:
+    resource_group: "{{ resourceGroupName }}"
+    provider: ContainerRegistry
+    resource_type: registries
+    resource_name: "acr{{ environmentShort }}{{ locationShort }}{{ commonName }}"
+    api_version: "2017-06-01-preview"
+    method: GET
+  register: acr
+  changed_when: false
+  tags:
+    - acr
+
+- name: List credentials Azure Container Registry
+  azure_rm_resource:
+    resource_group: "{{ resourceGroupName }}"
+    provider: ContainerRegistry
+    resource_type: registries
+    resource_name: "acr{{ environmentShort }}{{ locationShort }}{{ commonName }}/listCredentials"
+    api_version: "2017-06-01-preview"
+    method: POST
+  register: acrCredentials
+  changed_when: false
+  tags:
+    - acr
+
+- name: Create docker credentials variable
+  set_fact:
+    registryCredentials:
+      username: "{{ acrCredentials.response.username }}"
+      password: "{{ acrCredentials.response.passwords[0].value }}"
+      email: "{{ acrCredentials.response.username }}@{{ acr.response.properties.loginServer }}"
+      auth: "{{ (acrCredentials.response.username + ':' + acrCredentials.response.passwords[0].value) | b64encode }}"
+  tags:
+    - acr
+
+- name: Create docker credential
+  set_fact:
+    dockerCredential:
+      auths: "{{ {} | combine({acr.response.properties.loginServer:registryCredentials })  }}"
+  tags:
+    - acr
+
+- name: Create docker credentials for each namespace
+  k8s:
+    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+    state: "present"
+    namespace: "{{ item.name }}"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: regcred
+      type: kubernetes.io/dockerconfigjson
+      data:
+        .dockerconfigjson: "{{ dockerCredential | to_json | from_json | to_json(separators=(',',':')) | b64encode }}"
+  loop: "{{ configuration.namespaces }}"
+  tags:
+    - acr

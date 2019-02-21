@@ -1,0 +1,5 @@
+locationShort: we
+commonName: aks
+environment: production
+environmentShort: prd
+externalDnsZone: example.com

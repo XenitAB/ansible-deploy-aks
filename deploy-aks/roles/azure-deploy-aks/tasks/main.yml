@@ -1,0 +1,113 @@
+- name: Set python interpreter if using Azure DevOps
+  set_fact:
+    ansible_python_interpreter: "{{ adoAnsiblePythonInterpreter }}"
+  when: adoAnsiblePythonInterpreter is defined
+
+- name: Set playbook facts
+  set_fact:
+    time: "{{ ansible_date_time.iso8601_basic_short }}"
+    timeExpiry: "{{ '%Y-%m-%d' | strftime( ( ansible_date_time.epoch | int ) + ( 86400 * 3 )  ) }}"
+    resourceGroupName: "rg-{{ environmentShort }}-{{ locationShort }}-{{ commonName }}"
+    storageAccountName: "strg{{ environmentShort }}{{ locationShort }}{{ commonName }}"
+    storageContainerName: "ansible"
+
+- name: Create Azure resource group ({{ resourceGroupName }})
+  azure_rm_resourcegroup:
+     name: "{{ resourceGroupName }}"
+     location: "{{ location }}"
+
+- name: Create Azure storage account (strg{{ environmentShort }}{{ locationShort }}{{ commonName }})
+  azure_rm_storageaccount:
+    resource_group: "{{ resourceGroupName }}"
+    name: "{{ storageAccountName }}"
+    type: Standard_RAGRS
+  register: storageAccount
+
+- name: Find files in ./roles/{{role_path|basename}}/files
+  find:
+    paths: "./roles/{{role_path|basename}}/files"
+    recurse: yes
+    file_type: file
+  register: files
+
+- name: Create container ({{ storageContainerName }}) and upload files from ./roles/{{role_path|basename}}/files
+  azure_rm_storageblob:
+    resource_group: "{{ resourceGroupName }}"
+    storage_account_name: "{{ storageAccountName }}"
+    container: "{{ storageContainerName }}"
+    blob: "{{ time }}/{{ item.path | regex_replace(regex, '\\1') }}"
+    src: "{{ item.path }}"
+  with_items: "{{ files.files }}"
+  vars:
+    regex: "^roles/{{role_path|basename}}/files/(.*)"
+
+- name: Get Azure storage account keys
+  azure_rm_resource:
+    resource_group: "{{ resourceGroupName }}"
+    provider: storage
+    resource_type: storageAccounts
+    resource_name: "{{ storageAccountName }}/ListAccountSas"
+    api_version: "2018-03-01-preview"
+    method: POST
+    body:
+      signedServices: "b"
+      signedResourceTypes: "o"
+      signedPermission: "r"
+      signedProtocol: "https"
+      signedExpiry: "{{ timeExpiry }}"
+  register: storageAccountSas
+
+- name: Set Azure storage account facts
+  set_fact:
+    storageUri: "{{ storageAccount.state.primary_endpoints.blob }}"
+    storageSasToken: "{{ storageAccountSas.response.accountSasToken  }}"
+
+- name: Set ARM Template deployment name
+  set_fact:
+    deploymentName: "{{ commonName }}_{{ time }}"
+
+- name: Create azure deploy ({{ deploymentName }})
+  azure_rm_deployment:
+    state: present
+    resource_group_name: "{{ resourceGroupName }}"
+    location: "{{ location }}"
+    deployment_name: "{{ deploymentName }}"
+    template_link: "{{ storageUri }}{{ storageContainerName }}/{{ time }}/armtemplates/aks/main.json?{{ storageSasToken }}"
+    parameters:
+      containerUri:
+        value: "{{ storageUri }}{{ storageContainerName }}"
+      containerSasToken:
+        value: "?{{ storageSasToken }}"
+      time:
+        value: "{{ time }}"
+      commonName:
+        value: "{{ commonName }}"
+      resourceName:
+        value: "aks-{{ environmentShort }}-{{ locationShort }}-{{ commonName }}"
+      dnsPrefix:
+        value: "aks-{{ environmentShort }}-{{ locationShort }}-{{ commonName }}"
+      osDiskSizeGB:
+        value: "{{ osDiskSize }}"
+      agentCount:
+        value: "{{ nodeCount }}"
+      agentVMSize:
+        value: "{{ vmSize }}"
+      linuxAdminUsername:
+        value: "{{ sshUsername }}"
+      sshRSAPublicKey:
+        value: "{{ sshPublicKey }}"
+      servicePrincipalClientId:
+        value: "{{ AZURE_CLIENT_ID }}"
+      servicePrincipalClientSecret:
+        value: "{{ AZURE_SECRET }}"
+      osType:
+        value: "{{ aksOsType }}"
+      kubernetesVersion:
+        value: "{{ aksVersion }}"
+      omsName:
+        value: "oms-{{ environmentShort }}-{{ locationShort }}-{{ commonName }}"
+      acrName:
+        value: "acr{{ environmentShort }}{{ locationShort }}{{ commonName }}"
+      azureDnsZone:
+        value: "{{ externalDnsZone }}"
+  register: mainDeployment

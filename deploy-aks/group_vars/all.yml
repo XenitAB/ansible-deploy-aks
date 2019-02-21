@@ -1,0 +1,13 @@
+location: west europe
+locationShort: we
+commonName: aks
+sshUsername: <username>
+sshPublicKey: <public ssh key>
+aksOsType: Linux
+aksVersion: 1.12.5
+environment: production
+environmentShort: prd
+nodeCount: 3
+osDiskSize: 128
+vmSize: Standard_DS2_v2
+externalDnsZone: example.com

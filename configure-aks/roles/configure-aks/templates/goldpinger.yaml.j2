@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ configuration.goldpinger.namespace }}-serviceaccount
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ configuration.goldpinger.namespace }}-clusterrolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ configuration.goldpinger.namespace }}-clusterrole
+subjects:
+  - kind: ServiceAccount
+    name: {{ configuration.goldpinger.namespace }}-serviceaccount
+    namespace: {{ configuration.goldpinger.namespace }}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ configuration.goldpinger.namespace }}
+spec:
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: {{ configuration.goldpinger.namespace }}
+      version: "{{ configuration.goldpinger.containerVersion }}"
+  template:
+    metadata:
+      labels:
+        app: {{ configuration.goldpinger.namespace }}
+        version: "{{ configuration.goldpinger.containerVersion }}"
+    spec:
+      serviceAccount: "{{ configuration.goldpinger.namespace }}-serviceaccount"
+      containers:
+        - name: {{ configuration.goldpinger.namespace }}
+          env:
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: "80"
+            - name: HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          image: "{{ configuration.goldpinger.repository }}:{{ configuration.goldpinger.containerVersion }}"
+          ports:
+            - containerPort: 80
+              name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ configuration.goldpinger.namespace }}
+  labels:
+    app: {{ configuration.goldpinger.namespace }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      name: http
+  selector:
+    app: {{ configuration.goldpinger.namespace }}

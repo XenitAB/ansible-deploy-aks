@@ -1,0 +1,88 @@
+- name: Set fact for goldpinger tempdir
+  set_fact:
+    goldpingerTempDir: "/tmp/goldpinger-{{ ansible_date_time.iso8601_basic_short }}"
+  tags:
+    - goldpinger
+
+- name: Add goldpinger namespace
+  k8s:
+    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ configuration.goldpinger.namespace }}"
+        labels: "{{ configuration.goldpinger.labels | combine({'name': configuration.goldpinger.namespace}) }}"
+  tags:
+    - goldpinger
+
+- name: Add goldpinger cluster role
+  k8s:
+    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+    state: "present"
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRole
+      metadata:
+        name: "{{ configuration.goldpinger.namespace }}-clusterrole"
+      rules:
+      - apiGroups:
+        - ""
+        resources:
+        - pods
+        verbs:
+        - list
+  tags:
+    - goldpinger
+
+- name: Copy templates and apply
+  block:
+  - name: Create goldpinger temp dir
+    file:
+      path: "{{ goldpingerTempDir }}"
+      state: directory
+      mode: 0755
+    changed_when: false
+    tags:
+      - goldpinger
+
+  - name: Copy goldpinger manifest jinja2 templates
+    template:
+      src: "goldpinger.yaml.j2"
+      dest: "{{ goldpingerTempDir }}/goldpinger.yaml"
+    changed_when: false
+    tags:
+      - goldpinger
+
+  - name: Apply goldpinger manifest
+    k8s:
+      kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+      state: "present"
+      src: "{{ goldpingerTempDir }}/goldpinger.yaml"
+      namespace: "{{ configuration.goldpinger.namespace }}"
+    tags:
+      - goldpinger
+      
+  - name: Delete goldpinger temp dir
+    file:
+      path: "{{ goldpingerTempDir }}"
+      state: absent
+    changed_when: false
+    tags:
+      - goldpinger
+
+  rescue:
+  - name: Delete goldpinger temp dir
+    file:
+      path: "{{ goldpingerTempDir }}"
+      state: absent
+    changed_when: false
+    tags:
+      - goldpinger
+
+  - name: Fail
+    fail:
+      msg: "Rescue was invoked, failing task."
+    tags:
+      - goldpinger

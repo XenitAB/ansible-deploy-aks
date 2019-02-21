@@ -1,0 +1,159 @@
+- name: Set fact for velero tempdir
+  set_fact:
+    veleroTempDir: "/tmp/velero-{{ ansible_date_time.iso8601_basic_short }}"
+  tags:
+    - velero
+
+- name: Add velero namespace
+  k8s:
+    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ configuration.velero.namespace }}"
+        labels: "{{ configuration.velero.labels | combine({'name': configuration.velero.namespace}) }}"
+  tags:
+    - velero
+
+- name: Create container {{ configuration.velero.namespace }} in {{ configuration.velero.resourceGroupName }}/{{ configuration.velero.storageAccountName }}
+  azure_rm_storageblob:
+    resource_group: "{{ configuration.velero.resourceGroupName }}"
+    storage_account_name: "{{ configuration.velero.storageAccountName }}"
+    container: "{{ configuration.velero.namespace }}"
+  tags:
+    - velero
+
+- name: Create velero configuration variable
+  set_fact:
+    veleroConfiguration:
+      AZURE_SUBSCRIPTION_ID: "{{ AZURE_SUBSCRIPTION_ID | b64encode }}"
+      AZURE_TENANT_ID: "{{ AZURE_TENANT | b64encode }}"
+      AZURE_CLIENT_ID: "{{ AZURE_CLIENT_ID | b64encode }}"
+      AZURE_CLIENT_SECRET: "{{ AZURE_SECRET | b64encode }}"
+      AZURE_RESOURCE_GROUP: "{{ configuration.velero.resourceGroupName | b64encode }}"
+  tags:
+    - velero
+
+- name: Create secret for velero to Azure
+  k8s:
+    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+    state: "present"
+    namespace: "{{ configuration.velero.namespace }}"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: cloud-credentials
+      type: Opaque
+      data: "{{ veleroConfiguration }}"
+  tags:
+    - velero
+
+- name: Copy templates and apply
+  block:
+  - name: Create velero temp dir
+    file:
+      path: "{{ veleroTempDir }}"
+      state: directory
+      mode: 0755
+    changed_when: false
+    tags:
+      - velero
+
+  - name: Copy veleroCrds manifest jinja2 templates
+    template:
+      src: "veleroCrds.yaml.j2"
+      dest: "{{ veleroTempDir }}/veleroCrds.yaml"
+    changed_when: false
+    tags:
+      - velero
+
+  - name: Apply veleroCrds manifest
+    k8s:
+      kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+      state: "present"
+      src: "{{ veleroTempDir }}/veleroCrds.yaml"
+    tags:
+      - velero
+
+  - name: Copy velero manifest jinja2 templates
+    template:
+      src: "velero.yaml.j2"
+      dest: "{{ veleroTempDir }}/velero.yaml"
+    changed_when: false
+    tags:
+      - velero
+
+  - name: Apply velero manifest
+    k8s:
+      kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+      state: "present"
+      src: "{{ veleroTempDir }}/velero.yaml"
+    tags:
+      - velero
+      
+  - name: Delete velero temp dir
+    file:
+      path: "{{ veleroTempDir }}"
+      state: absent
+    changed_when: false
+    tags:
+      - velero
+
+  rescue:
+  - name: Delete velero temp dir
+    file:
+      path: "{{ veleroTempDir }}"
+      state: absent
+    changed_when: false
+    tags:
+      - velero
+
+  - name: Fail
+    fail:
+      msg: "Rescue was invoked, failing task."
+    tags:
+      - velero
+
+- name: Configure daily full backups
+  k8s:
+    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+    state: "present"
+    namespace: "{{ configuration.velero.namespace }}"
+    definition:
+      apiVersion: ark.heptio.com/v1
+      kind: Schedule
+      metadata:
+        name: daily-full-backups
+        labels:
+          frequency: daily
+          full: "true"
+      spec:
+        schedule: '0 2 * * *'
+        template:
+          ttl: 960h0m0s
+  tags:
+    - velero
+
+- name: Configure hourly minimal backups
+  k8s:
+    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+    state: "present"
+    namespace: "{{ configuration.velero.namespace }}"
+    definition:
+      apiVersion: ark.heptio.com/v1
+      kind: Schedule
+      metadata:
+        name: hourly-minimal-backups
+        labels:
+          frequency: hourly
+          full: "false"
+      spec:
+        schedule: '15 */1 * * *'
+        template:
+          snapshotVolumes: false
+          ttl: 960h0m0s
+  tags:
+    - velero

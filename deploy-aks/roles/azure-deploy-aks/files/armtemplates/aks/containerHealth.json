@@ -1,0 +1,121 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "time": {
+            "type": "string",
+            "metadata": {
+                "description": "Time variable used for linked templates"
+            }
+        },
+        "aksResourceId": {
+            "type": "string",
+            "metadata": {
+                "description": "AKS Cluster resource id"
+            }
+        },
+        "WorkspaceResourceId": {
+            "type": "string",
+            "metadata": {
+                "description": "Azure Monitor Log Analytics resource id"
+            }
+        },
+        "OmsWorkspaceSku": {
+            "defaultValue": "standalone",
+            "allowedValues": [
+                "free",
+                "standalone",
+                "pernode"
+            ],
+            "type": "string",
+            "metadata": {
+                "description": "Select the SKU for your workspace."
+            }
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.ContainerService/managedClusters",
+            "name": "[split(parameters('aksResourceId'),'/')[8]]",
+            "apiVersion": "2018-03-31",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "mode": "Incremental",
+                "id": "[parameters('aksResourceId')]",
+                "addonProfiles": {
+                    "omsagent": {
+                        "enabled": true,
+                        "config": {
+                            "logAnalyticsWorkspaceResourceID": "[parameters('WorkspaceResourceId')]"
+                        }
+                    }
+                }
+            },
+            "dependsOn": [
+                "[concat('Microsoft.Resources/deployments/', 'WorkspaceDeployment-', parameters('time'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "name": "[concat('SolutionOnboarding-', parameters('time'))]",
+            "apiVersion": "2017-05-10",
+            "properties": {
+                "mode": "Incremental",
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {},
+                    "variables": {},
+                    "resources": [
+                        {
+                            "apiVersion": "2015-11-01-preview",
+                            "type": "Microsoft.OperationsManagement/solutions",
+                            "location": "[resourceGroup().location]",
+                            "name": "[Concat('ContainerInsights', '(', split(parameters('WorkspaceResourceId'),'/')[8], ')')]",
+                            "properties": {
+                                "workspaceResourceId": "[parameters('WorkspaceResourceId')]"
+                            },
+                            "plan": {
+                                "name": "[Concat('ContainerInsights', '(', split(parameters('WorkspaceResourceId'),'/')[8], ')')]",
+                                "product": "[Concat('OMSGallery/', 'ContainerInsights')]",
+                                "promotionCode": "",
+                                "publisher": "Microsoft"
+                            }
+                        }
+                    ]
+                },
+                "parameters": {}
+            },
+            "dependsOn": [
+                "[concat('Microsoft.Resources/deployments/', 'WorkspaceDeployment-', parameters('time'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "name": "[concat('WorkspaceDeployment-', parameters('time'))]",
+            "apiVersion": "2017-05-10",
+            "properties": {
+                "mode": "Incremental",
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {},
+                    "variables": {},
+                    "resources": [
+                        {
+                            "apiVersion": "2015-11-01-preview",
+                            "type": "Microsoft.OperationalInsights/workspaces",
+                            "location": "[resourceGroup().location]",
+                            "name": "[split(parameters('WorkspaceResourceId'),'/')[8]]",
+                            "properties": {
+                                "sku": {
+                                    "name": "[parameters('OmsWorkspaceSku')]"
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}

@@ -1,0 +1,4 @@
+packaging
+msrestazure
+ansible-lint
+ansible[azure]
