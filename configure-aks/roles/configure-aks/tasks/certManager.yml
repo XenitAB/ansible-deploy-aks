@@ -151,6 +151,8 @@
                       tenantID: "{{ AZURE_TENANT }}"
                       resourceGroupName: "{{ resourceGroupName }}"
                       hostedZoneName: "{{ externalDnsZone }}"
+  retries: 20
+  delay: 30
   tags:
     - certManager
 
