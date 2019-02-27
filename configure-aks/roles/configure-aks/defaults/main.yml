@@ -4,7 +4,7 @@ configuration:
     dest: /tmp/k8s-admin.conf
   istio:
     dir: /tmp/istio
-    ver: 1.0.5
+    ver: 1.0.6
     namespace: istio-system
     state: present
   externalDns:

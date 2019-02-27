@@ -6,14 +6,14 @@ global:
   hub: docker.io/istio
 
   # Default tag for Istio images.
-  tag: 1.0.5
+  tag: 1.0.6
 
   # Gateway used for legacy k8s Ingress resources. By default it is
   # using 'istio:ingress', to match 0.8 config. It requires that
   # ingress.enabled is set to true. You can also set it
   # to ingressgateway, or any other gateway you define in the 'gateway'
   # section.
-  k8sIngressSelector: ingressgateway
+  k8sIngressSelector: ingress
 
   # k8sIngressHttps will add port 443 on the ingress and ingressgateway.
   # It REQUIRES that the certificates are installed  in the
@@ -23,7 +23,13 @@ global:
 
   proxy:
     image: proxyv2
-
+    
+    # DNS domain suffix for pilot proxy agent. Default value is "${POD_NAMESPACE}.svc.cluster.local".
+    proxyDomain: ""
+    
+    # DNS domain suffix for pilot proxy discovery. Default value is "cluster.local".
+    discoveryDomain: ""
+    
     # Resources for the sidecar.
     resources:
       requests:
@@ -129,11 +135,8 @@ global:
   # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
   # to use for pulling any images in pods that reference this ServiceAccount.
   # Must be set for any clustser configured with privte docker registry.
-  # imagePullSecrets:
-  #   - private-registry-key
-
-      # Default is 10s second
-  refreshInterval: 1s
+  imagePullSecrets:
+    # - private-registry-key
 
   # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
   #   0 - Never scheduled
@@ -437,8 +440,8 @@ security:
 #
 telemetry-gateway:
   gatewayName: ingressgateway
-  grafanaEnabled: true
-  prometheusEnabled: true
+  grafanaEnabled: false
+  prometheusEnabled: false
 
 grafana:
   enabled: true
@@ -451,8 +454,9 @@ grafana:
   accessMode: ReadWriteMany
   security:
     enabled: false
-    adminUser: admin
-    adminPassword: admin
+    secretName: grafana
+    usernameKey: username
+    passphraseKey: passphrase
   service:
     annotations: {}
     name: http
@@ -473,7 +477,7 @@ prometheus:
       port: 32090
 
 servicegraph:
-  enabled: true
+  enabled: false
   replicaCount: 1
   image: servicegraph
   service:
@@ -546,7 +550,7 @@ kiali:
   enabled: true
   replicaCount: 1
   hub: docker.io/kiali
-  tag: v0.10
+  tag: v0.12
   ingress:
     enabled: false
     ## Used to create an Ingress record.
@@ -561,10 +565,9 @@ kiali:
       #   hosts:
       #     - kiali.local
   dashboard:
-    username: admin
-    # Default admin passphrase for kiali. Must be set during setup, and
-    # changed by overriding the secret
-    passphrase: admin
+    secretName: kiali
+    usernameKey: username
+    passphraseKey: passphrase
 
     # Override the automatically detected Grafana URL, usefull when Grafana service has no ExternalIPs
     # grafanaURL:
@@ -582,4 +585,3 @@ certmanager:
   hub: quay.io/jetstack
   tag: v0.3.1
   resources: {}
-  
