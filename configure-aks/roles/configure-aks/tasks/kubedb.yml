@@ -1,0 +1,59 @@
+- name: Set fact for kubedb tempdir
+  set_fact:
+    kubedbTempDir: "/tmp/kubedb-{{ ansible_date_time.iso8601_basic_short }}"
+  tags:
+    - kubedb
+
+- name: Add kubedb namespace
+  k8s:
+    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ configuration.kubedb.namespace }}"
+        labels: "{{ configuration.kubedb.labels | combine({'name': configuration.kubedb.namespace}) }}"
+  tags:
+    - kubedb
+
+- name: Helm init
+  shell: "{{ helm.binDir }}/helm init --client-only"
+  tags:
+    - kubedb
+
+- name: Fetch helm chart for kubedb-operator
+  shell: "{{ helm.binDir }}/helm fetch --repo https://charts.appscode.com/stable --untar --untardir {{ kubedbTempDir }} --version {{ configuration.kubedb.version }} kubedb"
+  tags:
+    - kubedb
+
+- name: Generate kubernetes manifest for kubedb-operator
+  shell: "{{ helm.binDir }}/helm template \"{{ kubedbTempDir }}/kubedb\" --name kubedb-operator --namespace {{ configuration.kubedb.namespace }} > {{ kubedbTempDir }}/kubedb-operator.yaml"
+  tags:
+    - kubedb
+
+- name: Fetch helm chart for kubedb-catalog
+  shell: "{{ helm.binDir }}/helm fetch --repo https://charts.appscode.com/stable --untar --untardir {{ kubedbTempDir }} --version {{ configuration.kubedb.version }} kubedb-catalog"
+  tags:
+    - kubedb
+
+- name: Generate kubernetes manifest for kubedb-catalog
+  shell: "{{ helm.binDir }}/helm template \"{{ kubedbTempDir }}/kubedb-catalog\" --name kubedb-catalog --namespace {{ configuration.kubedb.namespace }} > {{ kubedbTempDir }}/kubedb-catalog.yaml"
+  tags:
+    - kubedb
+
+- name: Install kubedb-operator
+  shell: kubectl --kubeconfig="{{ configuration.k8sconfiguration.dest }}" apply -f "{{ kubedbTempDir }}/kubedb-operator.yaml"
+  tags:
+    - kubedb
+
+- name: Pause for 15 seconds to wait for registration of CRDs
+  pause:
+    seconds: 15
+  tags:
+    - kubedb
+
+- name: Install kubedb-catalog
+  shell: kubectl --kubeconfig="{{ configuration.k8sconfiguration.dest }}" apply -f "{{ kubedbTempDir }}/kubedb-catalog.yaml"
+  tags:
+    - kubedb

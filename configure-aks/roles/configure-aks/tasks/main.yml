@@ -79,6 +79,11 @@
     tags:
       - velero
 
+  - name: Include kubedb.yml
+    include_tasks: kubedb.yml
+    tags:
+      - kubedb
+
   - name: Remove k8s configuration
     file:
       state: absent

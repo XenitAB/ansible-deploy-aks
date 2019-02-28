@@ -29,6 +29,11 @@ configuration:
     storageAccountName: "strg{{ environmentShort }}{{ locationShort }}{{ commonName }}"
     labels:
       istio-injection: disabled
+  kubedb:
+    namespace: kubedb
+    version: 0.10.0
+    labels:
+      istio-injection: disabled
   clusterRoles:
   -
     name: istioNetworkAdmin
