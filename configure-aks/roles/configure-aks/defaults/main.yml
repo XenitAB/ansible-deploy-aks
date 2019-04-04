@@ -30,7 +30,9 @@ configuration:
     labels:
       istio-injection: disabled
   kubedb:
+    enabled: false
     namespace: kubedb
+    state: present
     version: 0.10.0
     labels:
       istio-injection: disabled

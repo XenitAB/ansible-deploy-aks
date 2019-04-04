@@ -19,6 +19,7 @@ Includes the following in Kubernetes:
 * external-dns
 * goldpinger
 * ark (velero)
+* kubedb (disabled by default)
 
 ## Configure the following files
 * [deploy-aks/group_vars/all.yml](deploy-aks/group_vars/all.yml)

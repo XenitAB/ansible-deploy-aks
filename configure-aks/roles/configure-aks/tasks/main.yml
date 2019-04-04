@@ -81,6 +81,7 @@
 
   - name: Include kubedb.yml
     include_tasks: kubedb.yml
+    when: configuration.kubedb.enabled
     tags:
       - kubedb
 

@@ -4,19 +4,6 @@
   tags:
     - kubedb
 
-- name: Add kubedb namespace
-  k8s:
-    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
-    state: present
-    definition:
-      apiVersion: v1
-      kind: Namespace
-      metadata:
-        name: "{{ configuration.kubedb.namespace }}"
-        labels: "{{ configuration.kubedb.labels | combine({'name': configuration.kubedb.namespace}) }}"
-  tags:
-    - kubedb
-
 - name: Helm init
   shell: "{{ helm.binDir }}/helm init --client-only"
   tags:
@@ -42,18 +29,60 @@
   tags:
     - kubedb
 
+- name: Add kubedb namespace
+  k8s:
+    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ configuration.kubedb.namespace }}"
+        labels: "{{ configuration.kubedb.labels | combine({'name': configuration.kubedb.namespace}) }}"
+  when: configuration.kubedb.state == "present"
+  tags:
+    - kubedb
+
 - name: Install kubedb-operator
   shell: kubectl --kubeconfig="{{ configuration.k8sconfiguration.dest }}" apply -f "{{ kubedbTempDir }}/kubedb-operator.yaml"
+  when: configuration.kubedb.state == "present"
   tags:
     - kubedb
 
 - name: Pause for 15 seconds to wait for registration of CRDs
   pause:
     seconds: 15
+  when: configuration.kubedb.state == "present"
   tags:
     - kubedb
 
 - name: Install kubedb-catalog
   shell: kubectl --kubeconfig="{{ configuration.k8sconfiguration.dest }}" apply -f "{{ kubedbTempDir }}/kubedb-catalog.yaml"
+  when: configuration.kubedb.state == "present"
+  tags:
+    - kubedb
+
+- name: Remove kubedb-catalog
+  shell: kubectl --kubeconfig="{{ configuration.k8sconfiguration.dest }}" delete --ignore-not-found=true -f "{{ kubedbTempDir }}/kubedb-catalog.yaml"
+  when: configuration.kubedb.state == "absent"
+  tags:
+    - kubedb
+
+- name: Remove kubedb-operator
+  shell: kubectl --kubeconfig="{{ configuration.k8sconfiguration.dest }}" delete --ignore-not-found=true -f "{{ kubedbTempDir }}/kubedb-operator.yaml"
+  when: configuration.kubedb.state == "absent"
+  tags:
+    - kubedb
+
+- name: Remove kubedb namespace
+  k8s:
+    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+    state: absent
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ configuration.kubedb.namespace }}"
+  when: configuration.kubedb.state == "absent"
   tags:
     - kubedb
