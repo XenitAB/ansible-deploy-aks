@@ -106,6 +106,8 @@
         value: "{{ aksVersion }}"
       omsName:
         value: "oms-{{ environmentShort }}-{{ locationShort }}-{{ commonName }}"
+      omsEnabled:
+        value: "{{ omsEnabled }}"
       acrName:
         value: "acr{{ environmentShort }}{{ locationShort }}{{ commonName }}"
       azureDnsZone:

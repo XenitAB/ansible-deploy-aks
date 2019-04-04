@@ -11,3 +11,4 @@ nodeCount: 3
 osDiskSize: 128
 vmSize: Standard_DS2_v2
 externalDnsZone: example.com
+omsEnabled: false

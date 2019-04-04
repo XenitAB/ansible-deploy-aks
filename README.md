@@ -8,7 +8,7 @@ Two playbooks to deploy and configure Azure Kubernetes Service.
 
 Includes the following in Azure:
 * AKS Cluster (RBAC)
-* ContainerInsights
+* ContainerInsights (disabled by default)
 * DNS Zone (to be configured with external-dns)
 * Azure Container Registry
 * Not implemented: Azure AD Configuration
