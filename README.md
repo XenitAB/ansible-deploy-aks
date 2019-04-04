@@ -20,6 +20,7 @@ Includes the following in Kubernetes:
 * goldpinger
 * ark (velero)
 * kubedb (disabled by default)
+* datadog agent (and tracing)
 
 ## Configure the following files
 * [deploy-aks/group_vars/all.yml](deploy-aks/group_vars/all.yml)
@@ -74,7 +75,7 @@ Manual steps:
 #### Configure AKS
 ```ansible
 cd configure-aks
-ansible-playbook -i hosts configure-aks.yml -e "ansible_python_interpreter=<python>" -e AZURE_CLIENT_ID="<ClientID>" -e AZURE_SECRET='"<Secret>"' -e AZURE_SUBSCRIPTION_ID="<SubscriptionID>" -e AZURE_TENANT="<TenantID>" --flush-cache
+ansible-playbook -i hosts configure-aks.yml -e "ansible_python_interpreter=<python>" -e AZURE_CLIENT_ID="<ClientID>" -e AZURE_SECRET='"<Secret>"' -e AZURE_SUBSCRIPTION_ID="<SubscriptionID>" -e AZURE_TENANT="<TenantID>" -e DATADOG_API_KEY='"<DatadogApiKey>"' --flush-cache
 ```
 
 ### Kubernetes

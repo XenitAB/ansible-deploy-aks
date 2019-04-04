@@ -84,6 +84,12 @@
     when: configuration.kubedb.enabled
     tags:
       - kubedb
+  
+  - name: Include datadog.yml
+    include_tasks: datadog.yml
+    when: configuration.datadog.enabled
+    tags:
+      - datadog
 
   - name: Remove k8s configuration
     file:

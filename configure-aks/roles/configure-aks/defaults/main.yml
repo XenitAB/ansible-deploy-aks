@@ -36,6 +36,13 @@ configuration:
     version: 0.10.0
     labels:
       istio-injection: disabled
+  datadog:
+    enabled: true
+    state: present
+    namespace: datadog
+    site: datadoghq.eu
+    labels:
+      istio-injection: disabled
   clusterRoles:
   -
     name: istioNetworkAdmin

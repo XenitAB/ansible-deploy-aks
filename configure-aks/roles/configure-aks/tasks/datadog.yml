@@ -1,0 +1,69 @@
+- name: Set fact for datadog tempdir
+  set_fact:
+    datadogTempDir: "/tmp/datadog-{{ ansible_date_time.iso8601_basic_short }}"
+  tags:
+    - datadog
+
+- name: Add datadog namespace
+  k8s:
+    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ configuration.datadog.namespace }}"
+        labels: "{{ configuration.datadog.labels | combine({'name': configuration.datadog.namespace}) }}"
+  tags:
+    - datadog
+
+- name: Copy templates and apply
+  block:
+  - name: Create datadog temp dir
+    file:
+      path: "{{ datadogTempDir }}"
+      state: directory
+      mode: 0755
+    changed_when: false
+    tags:
+      - datadog
+
+  - name: Copy datadog manifest jinja2 templates
+    template:
+      src: "datadog.yaml.j2"
+      dest: "{{ datadogTempDir }}/datadog.yaml"
+    changed_when: false
+    tags:
+      - datadog
+
+  - name: Apply datadog manifest
+    k8s:
+      kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+      state: "{{ configuration.datadog.state }}"
+      src: "{{ datadogTempDir }}/datadog.yaml"
+      namespace: "{{ configuration.datadog.namespace }}"
+    tags:
+      - datadog
+      
+  - name: Delete datadog temp dir
+    file:
+      path: "{{ datadogTempDir }}"
+      state: absent
+    changed_when: false
+    tags:
+      - datadog
+
+  rescue:
+  - name: Delete datadog temp dir
+    file:
+      path: "{{ datadogTempDir }}"
+      state: absent
+    changed_when: false
+    tags:
+      - datadog
+
+  - name: Fail
+    fail:
+      msg: "Rescue was invoked, failing task."
+    tags:
+      - datadog

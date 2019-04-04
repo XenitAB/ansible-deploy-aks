@@ -1,0 +1,230 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: datadog-secret
+  namespace: datadog
+  labels:
+    app: "datadog"
+type: Opaque
+data:
+  api-key: "{{ DATADOG_API_KEY | b64encode }}"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: datadog-agent
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - services
+  - events
+  - endpoints
+  - pods
+  - nodes
+  - componentstatuses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups: ["quota.openshift.io"]
+  resources:
+  - clusterresourcequotas
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  resourceNames:
+  - datadogtoken
+  - datadog-leader-election
+  verbs:
+  - get
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+- nonResourceURLs:
+  - "/version"
+  - "/healthz"
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - nodes/metrics
+  - nodes/spec
+  - nodes/proxy
+  verbs:
+  - get
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: datadog-agent
+  namespace: datadog
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: datadog-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: datadog-agent
+subjects:
+- kind: ServiceAccount
+  name: datadog-agent
+  namespace: datadog
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: datadog-configurations
+data:
+  mongodb_auto_conf.yaml: |
+    ad_identifiers:
+      - mongo
+
+    init_config:
+
+    instances:
+      - server: "mongodb://%%host%%:27017/admin"
+        additional_metrics:
+          - collection
+          - metrics.commands
+          - tcmalloc
+          - top
+  istio_conf.yaml: |
+    init_config:
+
+    instances:
+      - istio_mesh_endpoint: http://istio-telemetry.istio-system:42422/metrics
+        mixer_endpoint: http://istio-telemetry.istio-system:9093/metrics
+        send_histograms_buckets: true
+---
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  labels:
+    app: datadog-agent
+  name: datadog-agent
+  namespace: datadog
+spec:
+  selector:
+    matchLabels:
+      app: datadog-agent
+  template:
+    metadata:
+      labels:
+        app: datadog-agent
+      name: datadog-agent
+    spec:
+      serviceAccountName: datadog-agent
+      containers:
+      - env:
+        - name: DD_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: datadog-secret
+              key: api-key
+        - name: DD_COLLECT_KUBERNETES_EVENTS
+          value: "true"
+        - name: DD_LEADER_ELECTION
+          value: "true"
+        - name: KUBERNETES
+          value: "yes"
+        - name: DD_KUBERNETES_KUBELET_HOST
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.hostIP
+        - name: DD_LOGS_ENABLED
+          value: "true"
+        - name: DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL
+          value: "true"
+        - name: DD_AC_EXCLUDE
+          value: name:datadog-agent
+        - name: DD_APM_ENABLED
+          value: "true"
+        - name: DD_SITE
+          value: "{{ configuration.datadog.site }}"
+        - name: DD_APM_DD_URL
+          value: "https://trace.agent.{{ configuration.datadog.site }}"
+        image: datadog/agent:latest
+        imagePullPolicy: Always
+        livenessProbe:
+          exec:
+            command:
+            - ./probe.sh
+          failureThreshold: 3
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: datadog-agent
+        ports:
+        - containerPort: 8125
+          hostPort: 8125
+          name: dogstatsdport
+          protocol: UDP
+        - containerPort: 8126
+          hostPort: 8126
+          name: traceport
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 200m
+            memory: 256Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/run/docker.sock
+          name: dockersocket
+        - mountPath: /host/proc
+          name: procdir
+          readOnly: true
+        - mountPath: /host/sys/fs/cgroup
+          name: cgroups
+          readOnly: true
+        - mountPath: /opt/datadog-agent/run
+          name: pointerdir
+        - name: datadog-configurations
+          mountPath: /etc/datadog-agent/conf.d/mongo.d/auto_conf.yaml
+          subPath: mongodb_auto_conf.yaml
+        - name: datadog-configurations
+          mountPath: /etc/datadog-agent/conf.d/istio.d/conf.yaml
+          subPath: istio_conf.yaml
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - hostPath:
+          path: /var/run/docker.sock
+          type: ""
+        name: dockersocket
+      - hostPath:
+          path: /proc
+          type: ""
+        name: procdir
+      - hostPath:
+          path: /sys/fs/cgroup
+          type: ""
+        name: cgroups
+      - hostPath:
+          path: /opt/datadog-agent/run
+          type: ""
+        name: pointerdir
+      - name: datadog-configurations
+        configMap:
+          name: datadog-configurations
