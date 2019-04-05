@@ -33,7 +33,7 @@ configuration:
     enabled: false
     namespace: kubedb
     state: present
-    version: 0.10.0
+    version: 0.11.0
     labels:
       istio-injection: disabled
   datadog:
