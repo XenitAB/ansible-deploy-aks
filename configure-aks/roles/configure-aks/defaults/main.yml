@@ -2,11 +2,11 @@ configuration:
   k8sconfiguration:
     src: /etc/kubernetes/admin.conf
     dest: /tmp/k8s-admin.conf
-  istio:
-    dir: /tmp/istio
-    ver: 1.0.6
+  istioOperator:
+    operatorGitRepo: https://github.com/banzaicloud/istio-operator.git
+    operatorBranch: release-1.1
     namespace: istio-system
-    state: present
+    istioVersion: 1.1.2
   externalDns:
     namespace: external-dns
     labels:

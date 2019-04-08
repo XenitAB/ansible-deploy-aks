@@ -14,7 +14,7 @@ Includes the following in Azure:
 * Not implemented: Azure AD Configuration
 
 Includes the following in Kubernetes:
-* Istio
+* Istio (using istio-operator)
 * cert-manager
 * external-dns
 * goldpinger

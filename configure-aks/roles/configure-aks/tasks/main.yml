@@ -49,10 +49,10 @@
     tags:
       - helm
 
-  - name: Include istio.yml
-    include_tasks: istio.yml
+  - name: Include istioOperator.yml
+    include_tasks: istioOperator.yml
     tags:
-      - istio
+      - istioOperator
   
   - name: Include acr.yml
     include_tasks: acr.yml

@@ -1,0 +1,141 @@
+- name: Set fact for istioOperator tempdir
+  set_fact:
+    istioOperatorTempDir: "/tmp/istioOperator-{{ ansible_date_time.iso8601_basic_short }}"
+  tags:
+    - istioOperator
+
+- name: Copy templates and apply
+  block:
+  - name: Create istioOperator temp dir
+    file:
+      path: "{{ istioOperatorTempDir }}"
+      state: directory
+      mode: 0755
+    changed_when: false
+    tags:
+      - istioOperator
+
+  - name: Clone istio-operator git repository
+    git:
+      repo: "{{ configuration.istioOperator.operatorGitRepo }}"
+      dest: "{{ istioOperatorTempDir }}"
+      version: "{{ configuration.istioOperator.operatorBranch }}"
+    tags:
+      - istioOperator
+      
+  - name: Deploy istio-operator using make
+    make:
+      chdir: "{{ istioOperatorTempDir }}"
+      target: deploy
+    environment:
+      KUBECONFIG: "{{ configuration.k8sconfiguration.dest }}"
+    tags:
+      - istioOperator
+
+  - name: Add istio using the operator
+    k8s:
+      kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+      state: present
+      namespace: "{{ configuration.istioOperator.namespace }}"
+      definition:
+        apiVersion: istio.banzaicloud.io/v1beta1
+        kind: Istio
+        metadata:
+          labels:
+            controller-tools.k8s.io: "1.0"
+          name: istio
+        spec:
+          version: "{{ configuration.istioOperator.istioVersion }}"
+          mtls: true
+          includeIPRanges: "10.244.0.0/16,10.0.0.0/16"
+          excludeIPRanges: ""
+          autoInjectionNamespaces:
+          - "default"
+          controlPlaneSecurityEnabled: true
+          pilot:
+            enabled: true
+            image: "docker.io/istio/pilot:1.1.2"
+            replicaCount: 1
+            minReplicas: 1
+            maxReplicas: 5
+            traceSampling: 0
+          citadel:
+            enabled: true
+            image: "docker.io/istio/citadel:1.1.2"
+            replicaCount: 1
+          galley:
+            enabled: true
+            image: "docker.io/istio/galley:1.1.2"
+            replicaCount: 1
+          gateways:
+            enabled: true
+            ingress:
+              enabled: true
+              replicaCount: 1
+              minReplicas: 2
+              maxReplicas: 5
+              serviceType: "LoadBalancer"
+              serviceAnnotations: {}
+              serviceLabels: {}
+            egress:
+              enabled: false
+              replicaCount: 1
+              minReplicas: 1
+              maxReplicas: 5
+              serviceType: "ClusterIP"
+              serviceAnnotations: {}
+              serviceLabels: {}
+            k8singress:
+              enabled: false
+          mixer:
+            enabled: true
+            image: "docker.io/istio/mixer:1.1.2"
+            replicaCount: 1
+            minReplicas: 1
+            maxReplicas: 5
+          sidecarInjector:
+            enabled: true
+            image: "docker.io/istio/sidecar_injector:1.1.2"
+            replicaCount: 1
+            rewriteAppHTTPProbe: true
+          nodeAgent:
+            enabled: false
+            image: "docker.io/istio/node-agent-k8s:1.1.2"
+          proxy:
+            image: "docker.io/istio/proxyv2:1.1.2"
+            enableCoreDump: false
+          proxyInit:
+            image: "docker.io/istio/proxy_init:1.1.2"
+          defaultPodDisruptionBudget:
+            enabled: true
+          outboundTrafficPolicy:
+            mode: ALLOW_ANY
+          tracing:
+            enabled: false
+            zipkin:
+              address: zipkin.istio-system:9411
+    tags:
+      - istioOperator
+
+  - name: Delete istioOperator temp dir
+    file:
+      path: "{{ istioOperatorTempDir }}"
+      state: absent
+    changed_when: false
+    tags:
+      - istioOperator
+
+  rescue:
+  - name: Delete istioOperator temp dir
+    file:
+      path: "{{ istioOperatorTempDir }}"
+      state: absent
+    changed_when: false
+    tags:
+      - istioOperator
+
+  - name: Fail
+    fail:
+      msg: "Rescue was invoked, failing task."
+    tags:
+      - istioOperator
