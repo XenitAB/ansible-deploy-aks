@@ -96,6 +96,7 @@
         "kubernetesVersion": {
             "type": "string",
             "allowedValues": [
+                "1.13.5",
                 "1.12.6",
                 "1.12.5",
                 "1.12.4",

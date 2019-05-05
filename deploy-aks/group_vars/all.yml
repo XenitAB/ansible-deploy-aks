@@ -4,7 +4,7 @@ commonName: aks
 sshUsername: <username>
 sshPublicKey: <public ssh key>
 aksOsType: Linux
-aksVersion: 1.12.6
+aksVersion: 1.13.5
 environment: production
 environmentShort: prd
 nodeCount: 3
