@@ -52,20 +52,21 @@
           autoInjectionNamespaces:
           - "default"
           controlPlaneSecurityEnabled: true
+          sds:
+            enabled: false
           pilot:
             enabled: true
-            image: "docker.io/istio/pilot:1.1.2"
+            image: "docker.io/istio/pilot:{{ configuration.istioOperator.istioVersion }}"
             replicaCount: 1
             minReplicas: 1
             maxReplicas: 5
-            traceSampling: 0
+            traceSampling: 1.0
           citadel:
             enabled: true
-            image: "docker.io/istio/citadel:1.1.2"
-            replicaCount: 1
+            image: "docker.io/istio/citadel:{{ configuration.istioOperator.istioVersion }}"
           galley:
             enabled: true
-            image: "docker.io/istio/galley:1.1.2"
+            image: "docker.io/istio/galley:{{ configuration.istioOperator.istioVersion }}"
             replicaCount: 1
           gateways:
             enabled: true
@@ -89,33 +90,74 @@
               enabled: false
           mixer:
             enabled: true
-            image: "docker.io/istio/mixer:1.1.2"
+            image: "docker.io/istio/mixer:{{ configuration.istioOperator.istioVersion }}"
             replicaCount: 1
             minReplicas: 1
             maxReplicas: 5
           sidecarInjector:
             enabled: true
-            image: "docker.io/istio/sidecar_injector:1.1.2"
+            image: "docker.io/istio/sidecar_injector:{{ configuration.istioOperator.istioVersion }}"
             replicaCount: 1
             rewriteAppHTTPProbe: true
+            autoInjectionPolicyEnabled: true
           nodeAgent:
             enabled: false
-            image: "docker.io/istio/node-agent-k8s:1.1.2"
+            image: "docker.io/istio/node-agent-k8s:{{ configuration.istioOperator.istioVersion }}"
           proxy:
-            image: "docker.io/istio/proxyv2:1.1.2"
+            image: "docker.io/istio/proxyv2:{{ configuration.istioOperator.istioVersion }}"
             enableCoreDump: false
           proxyInit:
-            image: "docker.io/istio/proxy_init:1.1.2"
+            image: "docker.io/istio/proxy_init:{{ configuration.istioOperator.istioVersion }}"
           defaultPodDisruptionBudget:
             enabled: true
           outboundTrafficPolicy:
             mode: ALLOW_ANY
           tracing:
-            enabled: false
-            zipkin:
-              address: zipkin.istio-system:9411
+            enabled: true
+            tracer: datadog
+            datadog:
+                address: $(HOST_IP):8126
     tags:
       - istioOperator
+
+  - name: Add default istio ingress gateway
+    k8s:
+      kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+      state: present
+      namespace: "{{ configuration.istioOperator.namespace }}"
+      definition:
+        apiVersion: networking.istio.io/v1alpha3
+        kind: Gateway
+        metadata:
+          name: default-gateway
+          labels:
+            app: common
+        spec:
+          selector:
+            istio: ingressgateway
+          servers:
+          - port:
+              number: 80
+              name: http
+              protocol: HTTP
+            hosts: "{{ configuration.istioOperator.gatewayHosts }}"
+            tls:
+              httpsRedirect: true
+          - port:
+              number: 443
+              name: https
+              protocol: HTTPS
+            tls:
+              mode: SIMPLE
+              serverCertificate: /etc/istio/ingressgateway-certs/tls.crt
+              privateKey: /etc/istio/ingressgateway-certs/tls.key
+            hosts: "{{ configuration.istioOperator.gatewayHosts }}"
+    tags:
+      - istioOperator
+    register: result
+    retries: 5
+    delay: 5
+    until: result is succeeded
 
   - name: Delete istioOperator temp dir
     file:

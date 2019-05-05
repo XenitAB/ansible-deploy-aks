@@ -4,9 +4,11 @@ configuration:
     dest: /tmp/k8s-admin.conf
   istioOperator:
     operatorGitRepo: https://github.com/banzaicloud/istio-operator.git
-    operatorBranch: release-1.1
+    operatorBranch: 0.1.10
     namespace: istio-system
-    istioVersion: 1.1.2
+    istioVersion: 1.1.4
+    gatewayHosts:
+      - "*.{{ externalDnsZone }}"
   externalDns:
     namespace: external-dns
     labels:
