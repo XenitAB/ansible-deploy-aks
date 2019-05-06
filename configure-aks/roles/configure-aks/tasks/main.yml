@@ -91,6 +91,12 @@
     tags:
       - datadog
 
+  - name: Include dnsTxtRecords.yml
+    include_tasks: dnsTxtRecords.yml
+    when: configuration.dnsTxtRecords.enabled
+    tags:
+      - dnsTxtRecords
+
   - name: Remove k8s configuration
     file:
       state: absent

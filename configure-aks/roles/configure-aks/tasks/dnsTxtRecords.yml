@@ -1,0 +1,33 @@
+- name: Configure DMARC record
+  azure_rm_resource:
+    resource_group: "{{ resourceGroupName }}"
+    provider: Network
+    resource_type: dnsZones
+    resource_name: "{{ externalDnsZone }}/TXT/_dmarc"
+    api_version: "2018-05-01"
+    method: PUT
+    body:
+      properties:
+        TTL: 3600
+        TXTRecords:
+        - value:
+          - "{{ configuration.dnsTxtRecords.dmarc }}"
+  tags:
+    - dnsTxtRecords
+
+- name: Configure SPF record
+  azure_rm_resource:
+    resource_group: "{{ resourceGroupName }}"
+    provider: Network
+    resource_type: dnsZones
+    resource_name: "{{ externalDnsZone }}/TXT/@"
+    api_version: "2018-05-01"
+    method: PUT
+    body:
+      properties:
+        TTL: 3600
+        TXTRecords:
+        - value:
+          - "{{ configuration.dnsTxtRecords.spf }}"
+  tags:
+    - dnsTxtRecords

@@ -13,6 +13,10 @@ configuration:
     namespace: external-dns
     labels:
       istio-injection: disabled
+  dnsTxtRecords:
+    enabled: false
+    dmarc: "v=DMARC1; p=reject;"
+    spf: "v=spf1 -all"
   certManager:
     namespace: cert-manager
     labels:
