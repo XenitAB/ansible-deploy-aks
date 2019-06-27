@@ -51,6 +51,7 @@
 
   - name: Include istioOperator.yml
     include_tasks: istioOperator.yml
+    when: configuration.istioOperator.enabled
     tags:
       - istioOperator
   
@@ -77,11 +78,13 @@
 
   - name: Include goldpinger.yml
     include_tasks: goldpinger.yml
+    when: configuration.goldpinger.enabled
     tags:
       - goldpinger
 
   - name: Include velero.yml
     include_tasks: velero.yml
+    when: configuration.velero.enabled
     tags:
       - velero
 
