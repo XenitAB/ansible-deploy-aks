@@ -78,6 +78,18 @@ cd configure-aks
 ansible-playbook -i hosts configure-aks.yml -e "ansible_python_interpreter=<python>" -e AZURE_CLIENT_ID="<ClientID>" -e AZURE_SECRET='"<Secret>"' -e AZURE_SUBSCRIPTION_ID="<SubscriptionID>" -e AZURE_TENANT="<TenantID>" -e DATADOG_API_KEY='"<DatadogApiKey>"' --flush-cache
 ```
 
+### Citrix ingress controller
+Citrix has an ingress controller which can be used instead of products like [ingress-nginx](https://github.com/kubernetes/ingress-nginx). You can find more information about it here:
+* [Citrix ingress controller](https://github.com/citrix/citrix-k8s-ingress-controller)
+* [Citrix ADC CPX](https://docs.citrix.com/en-us/citrix-adc-cpx)
+
+#### How to use
+I've tested it without Istio and haven't tried it together. I recommend disabling istioOperator in [configure-aks/roles/configure-aks/defaults/main.yml](configure-aks/roles/configure-aks/defaults/main.yml).
+
+Enable citrixCpx in [configure-aks/roles/configure-aks/defaults/main.yml](configure-aks/roles/configure-aks/defaults/main.yml).
+
+When configure-aks has completed, deploy [cpx-ingress-apache.yaml](examples/cpx-ingress-apache.yaml) to one of your namespaces and verify functionality. Make sure to change the domain names (example.com) to the correct one. I've added a responder to redirect http to https to show how to use that functionality.
+
 ### Kubernetes
 #### Goldpinger
 ```kubectl
