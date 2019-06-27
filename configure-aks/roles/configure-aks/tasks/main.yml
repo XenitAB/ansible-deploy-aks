@@ -69,6 +69,12 @@
     tags:
       - certManager
 
+  - name: Include citrixCpx.yml
+    include_tasks: citrixCpx.yml
+    when: configuration.citrixCpx.enabled
+    tags:
+      - citrixCpx
+
   - name: Include goldpinger.yml
     include_tasks: goldpinger.yml
     tags:

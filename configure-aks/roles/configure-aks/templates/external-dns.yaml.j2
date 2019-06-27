@@ -58,6 +58,9 @@ spec:
         args:
         - --source=service
         - --source=istio-gateway
+{% if configuration.citrixCpx.enabled %}
+        - --source=ingress
+{% endif %}
         - --provider=azure
         volumeMounts:
         - name: azure-config-file

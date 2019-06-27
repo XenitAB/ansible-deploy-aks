@@ -1,0 +1,83 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: apache
+  labels:
+      name: apache
+spec:
+  selector:
+    matchLabels:
+      app: apache
+  replicas: 6
+  template:
+    metadata:
+      labels:
+        app: apache
+    spec:
+      containers:
+      - name: apache
+        image: httpd:latest
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apache
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app: apache
+---
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: apache-cert
+spec:
+  secretName: apache-cert
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  commonName: "apache.example.com"
+  acme:
+    config:
+    - dns01:
+        provider: azure
+      domains:
+      - "apache.example.com"
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: apache-ingress
+  annotations:
+   kubernetes.io/ingress.class: "citrix-ingress"
+   ingress.citrix.com/insecure-termination: "allow"
+spec:
+  tls:
+  - hosts:
+    - apache.example.com
+    secretName: apache-cert
+  rules:
+  - host: apache.example.com
+    http:
+      paths:
+      - backend:
+          serviceName: apache
+          servicePort: 80
+---
+apiVersion: citrix.com/v1
+kind: rewritepolicy
+metadata:
+  name: httpsredirect
+spec:
+  responder-policies:
+    - servicenames:
+        - apache
+      responder-policy:
+        redirect:
+          url: '"https://" + HTTP.REQ.HEADER("Host").HTTP_HEADER_SAFE + HTTP.REQ.URL.PATH_AND_QUERY.HTTP_URL_SAFE'
+        respond-criteria: 'CLIENT.SSL.IS_SSL.NOT'
+        comment: 'Redirect http to https'

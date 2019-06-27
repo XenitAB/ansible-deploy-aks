@@ -1,0 +1,69 @@
+- name: Set fact for citrixCpx tempdir
+  set_fact:
+    citrixCpxTempDir: "/tmp/citrixCpx-{{ ansible_date_time.iso8601_basic_short }}"
+  tags:
+    - citrixCpx
+
+- name: Add citrixCpx namespace
+  k8s:
+    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ configuration.citrixCpx.namespace }}"
+        labels: "{{ configuration.citrixCpx.labels | combine({'name': configuration.citrixCpx.namespace}) }}"
+  tags:
+    - citrixCpx
+
+- name: Copy templates and apply
+  block:
+  - name: Create citrixCpx temp dir
+    file:
+      path: "{{ citrixCpxTempDir }}"
+      state: directory
+      mode: 0755
+    changed_when: false
+    tags:
+      - citrixCpx
+
+  - name: Copy citrixCpx manifest jinja2 templates
+    template:
+      src: "citrixCpx.yaml.j2"
+      dest: "{{ citrixCpxTempDir }}/citrixCpx.yaml"
+    changed_when: false
+    tags:
+      - citrixCpx
+
+  - name: Apply citrixCpx manifest
+    k8s:
+      kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
+      state: "present"
+      src: "{{ citrixCpxTempDir }}/citrixCpx.yaml"
+      namespace: "{{ configuration.citrixCpx.namespace }}"
+    tags:
+      - citrixCpx
+      
+  - name: Delete citrixCpx temp dir
+    file:
+      path: "{{ citrixCpxTempDir }}"
+      state: absent
+    changed_when: false
+    tags:
+      - citrixCpx
+
+  rescue:
+  - name: Delete citrixCpx temp dir
+    file:
+      path: "{{ citrixCpxTempDir }}"
+      state: absent
+    changed_when: false
+    tags:
+      - citrixCpx
+
+  - name: Fail
+    fail:
+      msg: "Rescue was invoked, failing task."
+    tags:
+      - citrixCpx
