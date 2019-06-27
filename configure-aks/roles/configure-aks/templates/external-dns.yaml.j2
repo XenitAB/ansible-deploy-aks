@@ -57,7 +57,9 @@ spec:
         image: registry.opensource.zalan.do/teapot/external-dns:latest
         args:
         - --source=service
+{% if configuration.istioOperator.enabled %}
         - --source=istio-gateway
+{% endif %}
 {% if configuration.citrixCpx.enabled %}
         - --source=ingress
 {% endif %}
