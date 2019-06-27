@@ -108,7 +108,7 @@
     tags:
       - certManager
 
-- name: Create secret for cert-manager AzureDNS for istio
+- name: Create secret for cert-manager AzureDNS
   k8s:
     kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
     state: "present"
@@ -124,7 +124,7 @@
   tags:
     - certManager
 
-- name: Add cert-manager istio issuer
+- name: Add cert-manager issuer
   k8s:
     kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
     state: "present"
@@ -156,7 +156,7 @@
   tags:
     - certManager
 
-- name: Issue certificate
+- name: Issue certificate for istio
   k8s:
     kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
     state: "present"
@@ -179,5 +179,6 @@
             domains:
             - "*.{{ externalDnsZone }}"
             - "{{ externalDnsZone }}"
+  when: configuration.istioOperator.enabled
   tags:
     - certManager
