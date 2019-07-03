@@ -1,0 +1,15 @@
+apiVersion: citrix.com/v1
+kind: rewritepolicy
+metadata:
+  name: rewriteserverheader
+spec:
+  rewrite-policies:
+    - servicenames:
+        - apache
+      rewrite-policy:
+        operation: replace
+        target: 'HTTP.RES.HEADER("Server")'
+        modify-expression: '"****"'
+        comment: 'Rewrite HTTP Response Server header'
+        direction: RESPONSE
+        rewrite-criteria: 'HTTP.RES.HEADER("Server").EXISTS'

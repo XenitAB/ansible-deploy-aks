@@ -1,0 +1,14 @@
+apiVersion: citrix.com/v1
+kind: rewritepolicy
+metadata:
+  name: deleteserverheader
+spec:
+  rewrite-policies:
+    - servicenames:
+        - apache
+      rewrite-policy:
+        operation: delete_http_header
+        target: 'Server'
+        comment: 'Delete HTTP Response Server header'
+        direction: RESPONSE
+        rewrite-criteria: 'HTTP.RES.HEADER("Server").EXISTS'
