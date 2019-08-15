@@ -3,10 +3,11 @@ configuration:
     src: /etc/kubernetes/admin.conf
     dest: /tmp/k8s-admin.conf
   istioOperator:
+    enabled: true
     operatorGitRepo: https://github.com/banzaicloud/istio-operator.git
-    operatorBranch: 0.1.11
+    operatorBranch: 0.2.3
     namespace: istio-system
-    istioVersion: 1.1.5
+    istioVersion: 1.2.4
     gatewayHosts:
       - "*.{{ externalDnsZone }}"
   externalDns:

@@ -52,6 +52,9 @@
           autoInjectionNamespaces:
           - "default"
           controlPlaneSecurityEnabled: true
+          defaultResources:
+            requests:
+              cpu: 10m
           sds:
             enabled: false
           pilot:
@@ -61,6 +64,10 @@
             minReplicas: 1
             maxReplicas: 5
             traceSampling: 1.0
+            resources:
+              requests:
+                cpu: 500m
+                memory: 2048Mi
           citadel:
             enabled: true
             image: "docker.io/istio/citadel:{{ configuration.istioOperator.istioVersion }}"
@@ -76,8 +83,31 @@
               minReplicas: 2
               maxReplicas: 5
               serviceType: "LoadBalancer"
+              loadBalancerIP: ""
               serviceAnnotations: {}
               serviceLabels: {}
+              ports:
+                - port: 15020
+                  targetPort: 15020
+                  name: status-port
+                - port: 80
+                  targetPort: 80
+                  name: http2
+                  nodePort: 31380
+                - port: 443
+                  name: https
+                  nodePort: 31390
+                - port: 15443
+                  targetPort: 15443
+                  name: tls
+              applicationPorts: ""
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 2000m
+                  memory: 1024Mi
             egress:
               enabled: false
               replicaCount: 1
@@ -86,6 +116,22 @@
               serviceType: "ClusterIP"
               serviceAnnotations: {}
               serviceLabels: {}
+              ports:
+                - port: 80
+                  name: http2
+                - port: 443
+                  name: https
+                - port: 15443
+                  targetPort: 15443
+                  name: tls
+              applicationPorts: ""
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 2000m
+                  memory: 256Mi
             k8singress:
               enabled: false
           mixer:
@@ -100,12 +146,27 @@
             replicaCount: 1
             rewriteAppHTTPProbe: true
             autoInjectionPolicyEnabled: true
+            init:
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 10Mi
+                limits:
+                  cpu: 100m
+                  memory: 50Mi
           nodeAgent:
             enabled: false
             image: "docker.io/istio/node-agent-k8s:{{ configuration.istioOperator.istioVersion }}"
           proxy:
             image: "docker.io/istio/proxyv2:{{ configuration.istioOperator.istioVersion }}"
             enableCoreDump: false
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 2000m
+                memory: 1024Mi
           proxyInit:
             image: "docker.io/istio/proxy_init:{{ configuration.istioOperator.istioVersion }}"
           defaultPodDisruptionBudget:
