@@ -24,8 +24,8 @@ configuration:
       istio-injection: disabled
   citrixCpx:
     enabled: false
-    cpxVersion: "13.0-36.28"
-    cicVersion: "1.1.3"
+    cpxVersion: "13.0-36.29"
+    cicVersion: "1.2.0"
     namespace: citrix-cpx
     labels:
       istio-injection: disabled
