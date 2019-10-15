@@ -102,7 +102,7 @@
     "variables": {},
     "resources": [
         {
-            "apiVersion": "2018-03-31",
+            "apiVersion": "2019-06-01",
             "type": "Microsoft.ContainerService/managedClusters",
             "location": "[resourceGroup().location]",
             "name": "[parameters('resourceName')]",
@@ -116,7 +116,8 @@
                         "count": "[parameters('agentCount')]",
                         "vmSize": "[parameters('agentVMSize')]",
                         "osType": "[parameters('osType')]",
-                        "storageProfile": "ManagedDisks"
+                        "storageProfile": "ManagedDisks",
+                        "type": "VirtualMachineScaleSets"
                     }
                 ],
                 "linuxProfile": {
@@ -135,7 +136,8 @@
                 },
                 "enableRBAC": true,
                 "networkProfile": {
-                    "networkPolicy": "calico"
+                    "networkPolicy": "calico",
+                    "loadBalancerSku": "standard"
                 }
             }
         },
