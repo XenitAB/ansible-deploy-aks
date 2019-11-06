@@ -31,7 +31,7 @@ spec:
   selector:
     app: apache
 ---
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: cert-manager.io/v1alpha2
 kind: Certificate
 metadata:
   name: apache-cert
@@ -40,7 +40,8 @@ spec:
   issuerRef:
     name: letsencrypt-prod
     kind: ClusterIssuer
-  commonName: "apache.example.com"
+  dnsNames:
+    - "apache.example.com"
   acme:
     config:
     - dns01:

@@ -19,7 +19,15 @@ configuration:
     dmarc: "v=DMARC1; p=reject;"
     spf: "v=spf1 -all"
   certManager:
+    enabled: true
+    state: present
     namespace: cert-manager
+    helmRepo: https://charts.jetstack.io
+    helmRepoName: jetstack
+    helmChartName: cert-manager
+    helmChartVersion: 0.11.0
+    crdUrl: https://raw.githubusercontent.com/jetstack/cert-manager/release-0.11/deploy/manifests/00-crds.yaml
+    crdChecksum: "sha512:30d4a3bf2f958e81aabe51f3616eb91212ac7b9f684ef1da41cff863247ab19132096ed099675ed31976ec3fff2197faa865d0b13f7dc5c1ad1c7579b42afef4"
     labels:
       istio-injection: disabled
   citrixCpx:
@@ -36,11 +44,14 @@ configuration:
     labels:
       istio-injection: disabled
   velero:
-    namespace: heptio-ark
-    containerVersion: latest
-    volumeSnapshotApiTimeout: 120
-    resourceGroupName: "rg-{{ environmentShort }}-{{ locationShort }}-{{ commonName }}"
-    storageAccountName: "strg{{ environmentShort }}{{ locationShort }}{{ commonName }}"
+    enabled: true
+    state: present
+    namespace: velero
+    helmChartName: velero
+    helmChartVersion: 2.2.0
+    azureStorageAccountName: "strg{{ environmentShort }}{{ locationShort }}{{ commonName }}"
+    azureStorageAccountContainerName: velero
+    azureResourceGroupName: "rg-{{ environmentShort }}-{{ locationShort }}-{{ commonName }}"
     labels:
       istio-injection: disabled
   kubedb:

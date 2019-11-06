@@ -19,92 +19,124 @@
           flags: 0
           value: letsencrypt.org
         TTL: 3600
+  when: configuration.certManager.state == "present"
   tags:
     - certManager
 
-- name: Add cert-manager namespace
-  k8s:
-    kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
-    state: present
-    definition:
-      apiVersion: v1
-      kind: Namespace
-      metadata:
-        name: "{{ configuration.certManager.namespace }}"
-        labels: "{{ configuration.certManager.labels | combine({'name': configuration.certManager.namespace}) }}"
-  tags:
-    - certManager
-
-- name: Disable cert-manager validation for own namespace
-  shell: kubectl --kubeconfig="{{ configuration.k8sconfiguration.dest }}" label namespace "{{ configuration.certManager.namespace }}" certmanager.k8s.io/disable-validation=true --overwrite=true
-  changed_when: false
-  tags:
-    - certManager
-
-- name: Copy templates and apply
+- name: Download and apply helm template
   block:
-  - name: Create certManager temp dir
-    file:
-      path: "{{ certManagerTempDir }}"
-      state: directory
-      mode: 0755
-    changed_when: false
-    tags:
-      - certManager
-
-  - name: Copy cert-manager crd manifest jinja2 templates
-    template:
-      src: "certManagerCrds.yaml.j2"
-      dest: "{{ certManagerTempDir }}/certManagerCrds.yaml"
-    changed_when: false
-    tags:
-      - certManager
-
-  - name: Apply cert-manager crd manifest
+  - name: Add certManager namespace
     k8s:
       kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
-      state: "present"
-      src: "{{ certManagerTempDir }}/certManagerCrds.yaml"
+      state: present
+      definition:
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: "{{ configuration.certManager.namespace }}"
+          labels: "{{ configuration.certManager.labels | combine({'name': configuration.certManager.namespace}) }}"
+    when: configuration.certManager.state == "present"
     tags:
       - certManager
 
-  - name: Copy cert-manager manifest jinja2 templates
-    template:
-      src: "certManager.yaml.j2"
-      dest: "{{ certManagerTempDir }}/certManager.yaml"
-    changed_when: false
+  - name: Helm init
+    shell: "{{ helm.binDir }}/helm init --client-only"
     tags:
       - certManager
 
-  - name: Apply cert-manager manifest
+  - name: Helm repo add
+    shell: "{{ helm.binDir }}/helm repo add {{ configuration.certManager.helmRepoName }} {{ configuration.certManager.helmRepo }}"
+    tags:
+      - certManager
+
+  - name: Helm repo update
+    shell: "{{ helm.binDir }}/helm repo update"
+    tags:
+      - certManager
+
+  - name: Fetch helm chart for certManager
+    shell: "{{ helm.binDir }}/helm fetch --untar --untardir {{ certManagerTempDir }} --version {{ configuration.certManager.helmChartVersion }} {{ configuration.certManager.helmRepoName }}/{{ configuration.certManager.helmChartName }}"
+    tags:
+      - certManager
+
+  - name: Download certManager CRDs
+    get_url:
+      url: "{{ configuration.certManager.crdUrl }}"
+      checksum: "{{ configuration.certManager.crdChecksum }}"
+      dest: "{{ certManagerTempDir }}/crds.yaml"
+    tags:
+      - certManager
+
+  - name: Generate kubernetes manifest for certManager
+    shell: "{{ helm.binDir }}/helm template \"{{ certManagerTempDir }}/{{ configuration.certManager.helmChartName }}\" --name {{ configuration.certManager.helmChartName }} --namespace {{ configuration.certManager.namespace }} > {{ certManagerTempDir }}/certManager.yaml"
+    tags:
+      - certManager
+
+  - name: Install certManager CRDs
+    shell: "{{ kubectl.bin_directory }}/kubectl --kubeconfig=\"{{ configuration.k8sconfiguration.dest }}\" apply --validate=false -f \"{{ certManagerTempDir }}/crds.yaml\""
+    when: configuration.certManager.state == "present"
+    register: certManagerCrdManifestResult
+    retries: 5
+    delay: 5
+    until: certManagerCrdManifestResult is succeeded
+    tags:
+      - certManager
+
+  - name: Install certManager
+    shell: "{{ kubectl.bin_directory }}/kubectl --kubeconfig=\"{{ configuration.k8sconfiguration.dest }}\" apply -f \"{{ certManagerTempDir }}/certManager.yaml\""
+    when: configuration.certManager.state == "present"
+    register: certManagerManifestResult
+    retries: 5
+    delay: 5
+    until: certManagerManifestResult is succeeded
+    tags:
+      - certManager
+
+  - name: Remove certManager
+    shell: "{{ kubectl.bin_directory }}/kubectl --kubeconfig=\"{{ configuration.k8sconfiguration.dest }}\" delete --ignore-not-found=true -f \"{{ certManagerTempDir }}/certManager.yaml\""
+    when: configuration.certManager.state == "absent"
+    tags:
+      - certManager
+
+  - name: Remove certManager CRDs
+    shell: "{{ kubectl.bin_directory }}/kubectl --kubeconfig=\"{{ configuration.k8sconfiguration.dest }}\" delete --ignore-not-found=true -f \"{{ certManagerTempDir }}/crds.yaml\""
+    when: configuration.certManager.state == "absent"
+    tags:
+      - certManager
+
+  - name: Remove certManager namespace
     k8s:
       kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
-      state: "present"
-      src: "{{ certManagerTempDir }}/certManager.yaml"
-      namespace: "{{ configuration.certManager.namespace }}"
+      state: absent
+      definition:
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: "{{ configuration.certManager.namespace }}"
+    when: configuration.certManager.state == "absent"
     tags:
       - certManager
-      
-  - name: Delete certManager temp dir
+
+  - name: Delete temporary local folder
     file:
-      path: "{{ certManagerTempDir }}"
+      path: "{{ certManagerTempDir }}/"
       state: absent
     changed_when: false
     tags:
       - certManager
 
   rescue:
-  - name: Delete certManager temp dir
+  - name: Delete temporary local folder
     file:
-      path: "{{ certManagerTempDir }}"
+      path: "{{ certManagerTempDir }}/"
       state: absent
     changed_when: false
     tags:
       - certManager
 
-  - name: Fail
+  - name: Fail task
     fail:
-      msg: "Rescue was invoked, failing task."
+      msg: "Rescue was invoked, task failed."
     tags:
       - certManager
 
@@ -121,6 +153,7 @@
       type: Opaque
       data:
         CLIENT_SECRET: "{{ AZURE_SECRET | b64encode }}"
+  when: configuration.certManager.state == "present"
   tags:
     - certManager
 
@@ -129,7 +162,7 @@
     kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
     state: "present"
     definition:
-      apiVersion: certmanager.k8s.io/v1alpha1
+      apiVersion: cert-manager.io/v1alpha2
       kind: ClusterIssuer
       metadata:
         name: letsencrypt-prod
@@ -139,20 +172,22 @@
           email: "webmaster@{{ externalDnsZone }}"
           privateKeySecretRef:
             name: letsencrypt-prod
-          dns01:
-              providers:
-                  - name: azure
-                    azuredns:
-                      clientID: "{{ AZURE_CLIENT_ID }}"
-                      clientSecretSecretRef:
-                        name: azuredns-config
-                        key: CLIENT_SECRET
-                      subscriptionID: "{{ AZURE_SUBSCRIPTION_ID }}"
-                      tenantID: "{{ AZURE_TENANT }}"
-                      resourceGroupName: "{{ resourceGroupName }}"
-                      hostedZoneName: "{{ externalDnsZone }}"
+          solvers:
+            - dns01:
+                azuredns:
+                  clientID: "{{ AZURE_CLIENT_ID }}"
+                  clientSecretSecretRef:
+                    name: azuredns-config
+                    key: CLIENT_SECRET
+                  subscriptionID: "{{ AZURE_SUBSCRIPTION_ID }}"
+                  tenantID: "{{ AZURE_TENANT }}"
+                  resourceGroupName: "{{ resourceGroupName }}"
+                  hostedZoneName: "{{ externalDnsZone }}"
+  when: configuration.certManager.state == "present"
+  register: certManagerIssuerResult
   retries: 20
   delay: 30
+  until: certManagerIssuerResult is succeeded
   tags:
     - certManager
 
@@ -161,7 +196,7 @@
     kubeconfig: "{{ configuration.k8sconfiguration.dest }}"
     state: "present"
     definition:
-      apiVersion: certmanager.k8s.io/v1alpha1
+      apiVersion: cert-manager.io/v1alpha2
       kind: Certificate
       metadata:
         name: istio-gateway
@@ -171,7 +206,9 @@
         issuerRef:
           name: letsencrypt-prod
           kind: ClusterIssuer
-        commonName: "*.{{ externalDnsZone }}"
+        dnsNames:
+          - "*.{{ externalDnsZone }}"
+          - "{{ externalDnsZone }}"
         acme:
           config:
           - dns01:
@@ -179,6 +216,12 @@
             domains:
             - "*.{{ externalDnsZone }}"
             - "{{ externalDnsZone }}"
-  when: configuration.istioOperator.enabled
+  when: 
+    - configuration.istioOperator.enabled
+    - configuration.certManager.state == "present"
+  register: istioCertificateResult
+  retries: 20
+  delay: 30
+  until: istioCertificateResult is succeeded
   tags:
     - certManager

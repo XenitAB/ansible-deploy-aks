@@ -67,6 +67,7 @@
 
   - name: Include certManager.yml
     include_tasks: certManager.yml
+    when: configuration.certManager.enabled
     tags:
       - certManager
 
