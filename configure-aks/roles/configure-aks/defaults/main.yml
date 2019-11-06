@@ -38,8 +38,9 @@ configuration:
     labels:
       istio-injection: disabled
   goldpinger:
-    repository: quay.io/simongottschlag/goldpinger
-    containerVersion: 1.3.0
+    enabled: true
+    repository: bloomberg/goldpinger
+    containerVersion: 2.0.0
     namespace: goldpinger
     labels:
       istio-injection: disabled
