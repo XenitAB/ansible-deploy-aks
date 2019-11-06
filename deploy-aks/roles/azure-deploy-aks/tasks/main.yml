@@ -90,6 +90,10 @@
         value: "{{ osDiskSize }}"
       agentCount:
         value: "{{ nodeCount }}"
+      enableClusterAutoscaler:
+        value: "{{ enableClusterAutoscaler }}"
+      availabilityZones:
+        value: "{{ availabilityZones }}"
       agentVMSize:
         value: "{{ vmSize }}"
       linuxAdminUsername:

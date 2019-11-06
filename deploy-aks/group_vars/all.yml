@@ -8,6 +8,11 @@ aksVersion: 1.14.8
 environment: production
 environmentShort: prd
 nodeCount: 3
+enableClusterAutoscaler: true
+availabilityZones:
+  - "1"
+  - "2"
+  - "3"
 osDiskSize: 128
 vmSize: Standard_DS2_v2
 externalDnsZone: example.com

@@ -30,6 +30,24 @@
             "minValue": 1,
             "maxValue": 50
         },
+        "enableClusterAutoscaler": {
+            "type": "bool",
+            "metadata": {
+                "description": "Should cluster autoscaler be enabled or not."
+            },
+            "defaultValue": false
+        },
+        "availabilityZones": {
+            "type": "array",
+            "metadata": {
+                "description": "What availability zones should be used."
+            },
+            "defaultValue": [
+                "1",
+                "2",
+                "3"
+            ]
+        },
         "agentVMSize": {
             "type": "string",
             "metadata": {
@@ -111,13 +129,17 @@
                 "dnsPrefix": "[parameters('dnsPrefix')]",
                 "agentPoolProfiles": [
                     {
-                        "name": "agentpool",
+                        "name": "agentpool01",
                         "osDiskSizeGB": "[parameters('osDiskSizeGB')]",
                         "count": "[parameters('agentCount')]",
+                        "maxCount": "[parameters('agentCount')]",
+                        "minCount": 1,
+                        "enableAutoScaling": "[parameters('enableClusterAutoscaler')]",
                         "vmSize": "[parameters('agentVMSize')]",
                         "osType": "[parameters('osType')]",
                         "storageProfile": "ManagedDisks",
-                        "type": "VirtualMachineScaleSets"
+                        "type": "VirtualMachineScaleSets",
+                        "availabilityZones": "[parameters('availabilityZones')]"
                     }
                 ],
                 "linuxProfile": {

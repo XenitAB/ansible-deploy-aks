@@ -54,6 +54,24 @@
             "minValue": 1,
             "maxValue": 50
         },
+        "enableClusterAutoscaler": {
+            "type": "bool",
+            "metadata": {
+                "description": "Should cluster autoscaler be enabled or not."
+            },
+            "defaultValue": false
+        },
+        "availabilityZones": {
+            "type": "array",
+            "metadata": {
+                "description": "What availability zones should be used."
+            },
+            "defaultValue": [
+                "1",
+                "2",
+                "3"
+            ]
+        },
         "agentVMSize": {
             "type": "string",
             "metadata": {
@@ -159,6 +177,12 @@
                     },
                     "agentCount": {
                         "value": "[parameters('agentCount')]"
+                    },
+                    "enableClusterAutoscaler": {
+                        "value": "[parameters('enableClusterAutoscaler')]"
+                    },
+                    "availabilityZones": {
+                        "value": "[parameters('availabilityZones')]"
                     },
                     "agentVMSize": {
                         "value": "[parameters('agentVMSize')]"
