@@ -107,8 +107,8 @@ configuration:
       istio-injection: enabled
 
 kubectl:
-  version: "1.15.0"
-  checksum: "sha512:0906a8f7de1e5c5efd124385fdee376893733f343d3e8113e4f0f02dfae6a1f5b12dca3e2384700ea75ec39985b7c91832a3aeb8fa4f13ffd736c56a86f23594"
+  version: "1.16.2"
+  checksum: "sha512:69bb92c9b16c0286d7401d87cc73b85c88d6f9a17d2cf1748060e44525194b5be860daf7554c4c6319a546c9ff10f2b4df42a27e32d8f95a4052993b17ef57c0"
   bin_directory: "{{lookup('env', 'TMPDIR') | default('/tmp', true)}}"
   tmp_directory: "{{lookup('env', 'TMPDIR') | default('/tmp',true)}}"
   owner: "root"
@@ -117,7 +117,7 @@ kubectl:
   arch: "amd64"
 
 helm:
-  version: v2.14.1
-  checksum: "sha512:e9cde3cc0034b96ea17f1f965f62c0e2c722f72cbebcd502cec00d8c35bf64045965f2c06cff64230c935558ca04dbd8525351d551291246eecc5489e282b41a"
+  version: v2.16.0
+  checksum: "sha512:c4fc75186e46bf3ce2e067f82140ae965a20504ad0df941742ecd64481ba4a1a02a9ebead9e837c642262ffd10d761d97a1a3b9d470868c7f09936c7bdff7924"
   tmpDir: "{{lookup('env', 'TMPDIR') | default('/tmp', true)}}"
   binDir: "{{lookup('env', 'TMPDIR') | default('/tmp', true)}}"
